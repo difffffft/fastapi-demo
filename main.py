@@ -1,14 +1,18 @@
 import uvicorn
-from fastapi import FastAPI, Request, status
-from fastapi.responses import JSONResponse
-from router import UserRouter
-from common.R import R
+from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
+from fastapi.staticfiles import StaticFiles
+
+from router import UserRouter
+from handler import request_validation_exception_handler, exception_handler
+from middleware import TokenMiddleware
+from middleware import SignMiddleware
 
 # 全局app
 app = FastAPI()
-
+# 静态文件
+app.mount("/static", StaticFiles(directory="static"), name="static")
 # 跨域
 app.add_middleware(
     CORSMiddleware,
@@ -17,46 +21,27 @@ app.add_middleware(
     allow_headers=["*"],
     allow_credentials=True,
 )
-
-
-# 2.请求之前校验token
-@app.middleware("http")
-async def check_token(request: Request, call_next):
-    response = await call_next(request)
-    return response
-
-
-# 1.请求之前校验sign
-@app.middleware("http")
-async def check_sign(request: Request, call_next):
-    response = await call_next(request)
-    return response
-
-
-# 格式校验异常捕获
-@app.exception_handler(RequestValidationError)
-async def request_validation_error_handler(request: Request, e: RequestValidationError):
-    return JSONResponse(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content=R.error(str(e.errors())),
-    )
-
-
-# 全局异常捕获
-@app.exception_handler(Exception)
-async def exception_handler(request: Request, e: Exception):
-    print(e)
-    return JSONResponse(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content=R.error(str(e)),
-    )
-
-
+# token校验
+app.add_middleware(TokenMiddleware)
+# 接口加密校验
+app.add_middleware(SignMiddleware)
+# 接口参数格式校验异常全局捕获
+app.add_exception_handler(RequestValidationError, request_validation_exception_handler)
+# 异常全局捕获
+app.add_exception_handler(Exception, exception_handler)
 # 全局接口前缀
 global_prefix = "/api"
-
-# 注册路由模块
+# 注册用户路由
 app.include_router(UserRouter.router, prefix=global_prefix + "/user")
+
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    while True:
+        data = await websocket.receive_text()
+        await websocket.send_text(f"Message text was: {data}")
+
 
 # 运行入口
 if __name__ == "__main__":

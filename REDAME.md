@@ -1,8 +1,11 @@
 ### 依赖安装
 ```
 pip install fastapi
-pip install uvicorn
+pip install uvicorn[standard]
 pip install python-multipart
+
+pip install SQLalchemy
+pip install pymysql
 ```
 
 ### 项目特点

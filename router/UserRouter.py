@@ -4,6 +4,7 @@ from typing import Union
 from fastapi import APIRouter, UploadFile
 from common.R import R
 from common.Context import SOCKET_USERS
+from model.User import User
 
 from dto.UserDto import RegisterDTO
 
@@ -25,7 +26,13 @@ async def login(item):
 # 用户注册
 @router.post("/register")
 async def register(reg: RegisterDTO):
-    return R.success("注册成功", reg)
+    user = User(**vars(reg))
+    user.create_table(True)
+    b = user.insert()
+    if b:
+        return R.success("注册成功", reg)
+    else:
+        return R.error("注册失败")
 
 
 @router.post("/upload/images")
